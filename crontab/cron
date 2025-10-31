@@ -1,0 +1,2 @@
+1 0 * * * /Users/vietduc/cron/sync_cerebro.sh
+2 0 * * * /Users/vietduc/cron/sync_config.sh

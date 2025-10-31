@@ -1,0 +1,35 @@
+[user]
+	name = Duc Nguyen
+	email = 33684291+hellovietduc@users.noreply.github.com
+
+# Core settings
+[core]
+  pager = delta
+[init]
+	defaultBranch = main
+[help]
+  autocorrect = prompt
+
+# Commit behavior
+; [commit]
+;   template = ~/.gitmessage
+
+# Pull/merge behavior
+[pull]
+	ff = only
+[merge]
+  conflictstyle = diff3
+
+# Diff and delta configuration
+[diff]
+  colorMoved = default
+[include]
+  path = ~/.config/delta/themes.gitconfig
+[delta]
+  features = colibri
+  line-numbers = false
+  side-by-side = false
+  navigate = true
+  syntax-theme = tokyonight_moon
+[interactive]
+	diffFilter = delta --color-only

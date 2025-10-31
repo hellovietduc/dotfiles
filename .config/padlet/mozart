@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# Exit the script on error
+set -e
+
+case $1 in
+infra)
+  echo "🚀 Opening mozart infra..."
+  tmuxinator start mozart-infra
+  ;;
+dev)
+  echo "🚀 Opening mozart dev..."
+  tmuxinator start mozart-dev
+  ;;
+content-moderation)
+  echo "🚀 Opening mozart content-moderation..."
+  tmuxinator start mozart-content-moderation
+  ;;
+e2e)
+  echo "🚀 Opening mozart e2e..."
+  tmuxinator start mozart-e2e
+  ;;
+*)
+  echo "❌ Invalid command! Available commands:"
+  echo "- mozart infra"
+  echo "- mozart dev"
+  echo "- mozart content-moderation"
+  echo "- mozart e2e"
+  ;;
+esac

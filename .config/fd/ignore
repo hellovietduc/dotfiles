@@ -1,0 +1,10 @@
+.git/
+.gem/
+.cache/
+.node-gyp/
+.npm/
+.yalc/
+.vscode/
+.Trash/
+node_modules/
+

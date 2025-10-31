@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+# Claude Code wrapper with automatic Serena MCP server management
+# Transparently starts exactly one Serena instance per project with unique ports
+#
+# FINAL SOLUTION RATIONALE:
+# ========================
+# PATH wrapper + uvx + nohup/disown + /dev/tcp health check + mkdir locking
+#
+# Why this combination?
+# - PATH wrapper: Zero per-project setup, works with any claude invocation (IDE, CLI, etc.)
+# - uvx: No global installs, automatic caching, version isolation, simple backgrounding
+# - nohup+disown: POSIX standard, reliable process detachment, simpler than script/setsid
+# - /dev/tcp health: Instant port test, avoids SSE streaming hang (the real problem!)
+# - mkdir locking: Portable across macOS/Linux, atomic operation, built-in stale detection
+#
+# DEVELOPMENT EVOLUTION & LESSONS LEARNED:
+# ========================================
+# 
+# Original Problem: Manual Serena startup for each project was tedious, needed automation
+# for multi-project workflow with separate terminal tabs.
+#
+# Evolution 1: direnv + .envrc approach
+#   - Used .envrc files to auto-start Serena per project
+#   - Issues: Required per-project setup, direnv dependency, process management complexity
+#
+# Evolution 2: PATH wrapper approach  
+#   - Wrapper intercepts all `claude` calls, starts Serena transparently
+#   - Breakthrough: Zero per-project configuration needed
+#
+# Evolution 3: Complex process detachment attempts
+#   - Tried: script command, setsid, complex uvx alternatives
+#   - Issue: Commands would hang, assumed backgrounding problems
+#   - Red herring: Spent significant time on process detachment solutions
+#
+# CRITICAL INSIGHT: The problem was ALWAYS the health check!
+# ================================================================
+# SSE endpoints (/sse) stream indefinitely - curl never terminates on them.
+# This caused parent shell to hang waiting for curl, not backgrounding issues.
+# 
+# Once we removed curl on SSE endpoints, simple solutions worked perfectly:
+# - uvx backgrounds fine without complex wrappers
+# - nohup+disown works better than script command  
+# - /dev/tcp port test replaces hanging curl health check
+#
+# Key Lessons for Future Developers:
+# ==================================
+# 1. NEVER health check SSE endpoints with curl - they stream forever
+# 2. Use /dev/tcp for port connectivity testing instead
+# 3. Simple POSIX solutions (nohup+disown) often beat complex alternatives
+# 4. When debugging hangs, check if you're hitting streaming endpoints
+# 5. mkdir-based locking is portable and reliable across platforms
+#
+# USAGE: Just run `claude` as normal - Serena starts automatically if needed
+# CACHE: ~/.cache/serena/<project-hash>/{port,pid,serena.lock/}
+# PORTS: Auto-assigned from 9000-9999 range, consistent per project
+
+set -euo pipefail  # Fail fast on errors, undefined vars, pipe failures
+
+# Find the real claude binary once (micro-speed optimization)
+# Rationale: Resolve claude path at start instead of at end to avoid redundant PATH operations
+# We must exclude our own directory to prevent infinite recursion
+original_path="${PATH}"
+filtered_path=$(echo "${PATH}" | tr ':' '\n' | grep -v "^$(dirname "$0")$" | tr '\n' ':' | sed 's/:$//')
+real_claude=$(PATH="${filtered_path}" command -v claude)
+if [[ -z "${real_claude}" ]]; then
+    echo "Error: Could not find the real claude binary in PATH" >&2
+    exit 1
+fi
+
+# Detect project root (prefer git, fallback to current directory)
+# Rationale: git root gives us consistent project boundaries, PWD fallback for non-git projects
+project_root=$(git -C "${PWD}" rev-parse --show-toplevel 2>/dev/null || echo "${PWD}")
+
+# Create cache directory for this project (based on path hash)
+# Rationale: Path hash ensures unique, consistent cache per project, survives directory renames
+project_hash=$(echo -n "${project_root}" | shasum | cut -d' ' -f1)
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/serena/${project_hash}"
+mkdir -p "${cache_dir}"  # Create now to ensure it exists for all subsequent operations
+
+# Cache file paths - these track Serena state per project
+port_file="${cache_dir}/port"      # Stores the port Serena is running on
+pid_file="${cache_dir}/pid"        # Stores the PID of the Serena process  
+log_file="${cache_dir}/serena.log" # Serena's stdout/stderr for debugging
+
+# Function to check if Serena is healthy on given port (safe, non-SSE endpoint)
+# CRITICAL: Do NOT use curl on /sse endpoint - SSE streams never terminate!
+# This was the root cause of all our "backgrounding" issues. The parent shell
+# was hanging waiting for curl to finish, which it never would on SSE endpoints.
+check_serena_health() {
+    local port=$1
+    # Use /dev/tcp for instant port connectivity test (no HTTP, no hanging)
+    # Rationale: timeout 1 for fast failure on shells with long defaults (some use 10s+)
+    # /dev/tcp is bash built-in, works without external tools, tests raw TCP connectivity
+    timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/${port}" 2>/dev/null
+}
+
+# Function to find a free port in the 9000-9999 range
+# Rationale: 9000+ range avoids system/privileged ports, gives us 1000 ports for projects
+# Sequential search ensures consistent assignment (same project gets same port if available)
+find_free_port() {
+    for ((port=9000; port<=9999; port++)); do
+        # lsof checks if any process is listening on this port
+        if ! lsof -i ":${port}" >/dev/null 2>&1; then
+            echo "$port"
+            return
+        fi
+    done
+    # Fallback to random port if 9000-9999 all taken (highly unlikely)
+    echo $((RANDOM + 10000))
+}
+
+# Portable file locking using mkdir (works on both Linux and macOS)
+# Rationale: mkdir is atomic across all filesystems, flock/lockf aren't portable to all macOS
+# We store PID in lock for stale lock detection (process may have crashed)
+lock_dir="${cache_dir}/serena.lock"
+lock_pid_file="${lock_dir}/pid"
+timeout=10          # Max seconds to wait for lock
+sleep_interval=0.2  # Check lock every 200ms
+
+acquire_lock() {
+    local start_time=$(date +%s)
+
+    while :; do
+        # mkdir is atomic - either succeeds completely or fails completely
+        if mkdir "$lock_dir" 2>/dev/null; then
+            # Successfully acquired lock - record our PID for stale detection
+            printf '%s\n' "$$" >"$lock_pid_file"
+            trap 'release_lock' EXIT INT TERM HUP  # Auto-cleanup on exit
+            return 0
+        fi
+
+        # Lock exists - check if it's stale (holder process died)
+        if [[ -f "$lock_pid_file" ]]; then
+            local locker_pid=$(cat "$lock_pid_file" 2>/dev/null || echo "")
+            # kill -0 tests if process exists without actually sending signal
+            if [[ -n "$locker_pid" ]] && ! kill -0 "$locker_pid" 2>/dev/null; then
+                echo "Found stale lock held by $locker_pid - removing" >&2
+                rm -rf "$lock_dir"
+                continue  # retry immediately after cleanup
+            fi
+        fi
+
+        # Check timeout to avoid infinite waiting
+        local now=$(date +%s)
+        if [[ $((now - start_time)) -ge $timeout ]]; then
+            echo "Error: Could not acquire Serena lock after ${timeout}s" >&2
+            return 1
+        fi
+        sleep "$sleep_interval"
+    done
+}
+
+release_lock() {
+    # Only release if we own the lock (PID matches ours)
+    if [[ -d "$lock_dir" ]] && [[ "$(cat "$lock_pid_file" 2>/dev/null)" == "$$" ]]; then
+        rm -rf "$lock_dir"
+        rm -f "$pid_file"  # Clean up stale PID files (nit-level optimization)
+    fi
+}
+
+# Acquire lock to prevent race conditions (multiple claude invocations simultaneously)
+# Rationale: Without locking, concurrent calls could start multiple Serena instances
+if ! acquire_lock; then
+    exit 1
+fi
+
+# Check if we have a cached port and if Serena is still running
+# Rationale: Reuse existing healthy instances instead of starting duplicates
+if [[ -f "${port_file}" ]]; then
+    cached_port=$(cat "${port_file}")
+    if check_serena_health "$cached_port"; then
+        # Serena is healthy, use existing instance - no startup needed
+        export SERENA_URL="http://localhost:${cached_port}/sse"
+    else
+        # Serena is not healthy (crashed/killed), clean up stale files
+        rm -f "${port_file}" "${pid_file}"
+        cached_port=""
+    fi
+fi
+
+# Start Serena if we don't have a healthy instance
+if [[ ! -f "${port_file}" ]]; then
+    port=$(find_free_port)
+    echo "Starting Serena MCP server on port ${port} for project: ${project_root##*/}"
+    
+    # Ensure log directory exists (nit-level: survives cache purges)
+    mkdir -p "$(dirname "$log_file")"
+    
+    # Start Serena using uvx with simple nohup backgrounding
+    # Rationale: uvx avoids global installs, nohup+disown is simpler than script/setsid
+    # Key: </dev/null prevents uvx from inheriting stdin and potentially hanging
+    nohup uvx --from git+https://github.com/oraios/serena serena start-mcp-server \
+        --project "${project_root}" \
+        --context ide-assistant \
+        --transport sse \
+        --port "${port}" \
+        >"${log_file}" 2>&1 </dev/null &
+    
+    serena_pid=$!
+    disown  # Remove from job control so process survives shell exit
+    echo "${serena_pid}" > "${pid_file}"    # Cache PID for process management
+    echo "${port}" > "${port_file}" # Cache port for reuse
+    
+    # Wait for Serena to be ready with safe health check
+    # Rationale: Give Serena time to bind to port before Claude tries to connect
+    echo "Serena starting on port ${port}..."
+    for i in {1..10}; do  # Max 5 seconds wait (10 * 0.5s)
+        if check_serena_health "${port}"; then
+            echo "Serena ready on port ${port}"
+            break
+        fi
+        sleep 0.5
+    done
+    
+    export SERENA_URL="http://localhost:${port}/sse"
+else
+    # Use existing Serena instance
+    cached_port=$(cat "${port_file}")
+    export SERENA_URL="http://localhost:${cached_port}/sse"
+fi
+
+# Lock will be automatically released by trap on exit
+# Rationale: Even if exec fails, cleanup happens via trap
+
+# Execute the real Claude with all arguments (resolved at script start for micro-speed)
+# Rationale: exec replaces current process, so wrapper doesn't consume extra memory/PID
+exec "${real_claude}" "$@"

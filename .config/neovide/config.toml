@@ -1,0 +1,11 @@
+frame = "transparent"
+title-hidden = false
+neovim-bin = "/opt/homebrew/bin/nvim"
+
+# https://github.com/neovide/neovide/issues/2539#issuecomment-2214823903
+# This says it's better to use a patched Nerd Font but I like using fallback
+# because the icons are bigger.
+# Docs: https://neovide.dev/config-file.html#font
+[font]
+normal = ["JetBrains Mono", "Symbols Nerd Font Mono"]
+size = 15

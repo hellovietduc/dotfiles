@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Exit the script on error
+set -e
+
+case $1 in
+run)
+  echo "🚀 Opening mobile app..."
+  tmuxinator start mobile-app
+  ;;
+*)
+  echo "❌ Invalid command! Available commands:"
+  echo "- mbapp dev"
+  ;;
+esac

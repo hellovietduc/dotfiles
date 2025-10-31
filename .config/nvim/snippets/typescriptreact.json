@@ -1,0 +1,26 @@
+{
+  "arrow function": {
+    "prefix": ["fn"],
+    "body": ["$1($2)$3 => {", "  $0", "}"]
+  },
+  "function expression": {
+    "prefix": ["const"],
+    "body": ["const ${1:func} = $2 ($3)$4 => {", "  $0", "}"]
+  },
+  "immediately invoked function expression": {
+    "prefix": ["iife"],
+    "body": ["((${1:arg}) => {", "  $0", "})($2)"]
+  },
+  "console log": {
+    "prefix": ["console"],
+    "body": ["console.error('🚀 $1', $0)"]
+  },
+  "computed property": {
+    "prefix": "computed",
+    "body": "const $1 = computed<$2>(() => $3)"
+  },
+  "storeToRefs": {
+    "prefix": "store",
+    "body": ["const $2 = storeToRefs($1)"]
+  }
+}

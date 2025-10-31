@@ -1,0 +1,9 @@
+/* Hide horizontal tab bar */
+#TabsToolbar { visibility: collapse !important; }
+
+/* Hide Tree Style Tab header */
+/* https://github.com/piroor/treestyletab/wiki/Code-snippets-for-custom-style-rules#for-only-tree-style-tab-sidebar-1397 */
+#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"] #sidebar-header {
+  display: none;
+}
+

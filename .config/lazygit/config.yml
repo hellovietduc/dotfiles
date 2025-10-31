@@ -1,0 +1,8 @@
+gui:
+  showRandomTip: false
+update:
+  method: never
+git:
+  paging:
+    colorArg: always
+    pager: delta
