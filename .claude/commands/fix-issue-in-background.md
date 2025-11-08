@@ -7,9 +7,11 @@ Linear issue ID: $ARGUMENTS
 
 Use Linear MCP tools to fetch details about issue above. If the details are unclear or ambiguous, ASK the user for it before executing the next steps.
 
-Once understood, think deeply about solutions and present to the user how you're going to fix it.
+Once understood the issue, trace the root cause. Bugs often manifest deep in the call stack. Your instinct is to fix where the error appears, but that's treating a symptom. Core principle: Trace backward through the call chain until you find the original trigger, then present to the user how you're going to fix it.
 
-When executing the fix, ALWAYS use ONLY Environments for ANY and ALL file, code, or shell operations—NO EXCEPTIONS—even for simple or generic requests.
+---
+
+When executing this task, ALWAYS use ONLY Environments for ANY and ALL file, code, or shell operations—NO EXCEPTIONS—even for simple or generic requests.
 
 DO NOT install or use the git cli with the environment_run_cmd tool. All environment tools will handle git operations for you. Changing ".git" yourself will compromise the integrity of your environment.
 

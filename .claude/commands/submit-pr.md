@@ -42,5 +42,4 @@ description: Generate and submit PR description from Linear issue
 
 ## User input
 
-Linear issue ID:
-$ARGUMENTS
+Linear issue ID: $ARGUMENTS

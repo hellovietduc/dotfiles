@@ -54,6 +54,14 @@ return {
       end,
       desc = "Find Files (Smart)",
     },
+    {
+      "<leader>ff",
+      function()
+        Snacks.picker.files({ hidden = true })
+      end,
+      desc = "Find Files (Root Dir)",
+    },
+
     -- disable, trying the default live grep
     -- {
     --   "<leader>/",
