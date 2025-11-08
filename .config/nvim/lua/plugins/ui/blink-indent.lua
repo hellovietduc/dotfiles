@@ -13,13 +13,9 @@ return {
     "saghen/blink.indent",
     opts = {
       scope = {
+        char = "│",
         highlights = {
-          "BlinkIndentRed",
-          "BlinkIndentOrange",
-          "BlinkIndentYellow",
-          "BlinkIndentGreen",
-          "BlinkIndentViolet",
-          "BlinkIndentCyan",
+          "BlinkIndentScope",
         },
       },
     },
