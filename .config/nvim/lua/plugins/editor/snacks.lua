@@ -2,7 +2,10 @@ local function git_discard_everything()
   if vim.fn.confirm("Discard all changes?", "&Yes\n&No") == 1 then
     local cmd = { "git", "restore", ":/" }
     Snacks.picker.util.cmd(cmd, function()
-      -- no-op
+      -- retry once
+      Snacks.picker.util.cmd(cmd, function()
+        -- no-op
+      end)
     end)
 
     -- trigger autoread or warn the users buffer(s) was changed
@@ -45,7 +48,7 @@ return {
   },
   keys = {
     -- Open projects
-    { "<D-p>", "<leader>fp", mode = { "n", "v" }, remap = true },
+    { "<D-p>", "<leader>qS", mode = { "n", "v" }, remap = true },
 
     {
       "<leader><space>",
