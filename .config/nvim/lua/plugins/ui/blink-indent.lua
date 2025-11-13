@@ -11,6 +11,7 @@ return {
   },
   {
     "saghen/blink.indent",
+    event = "LazyFile",
     opts = {
       scope = {
         char = "│",

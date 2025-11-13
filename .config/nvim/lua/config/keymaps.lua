@@ -32,7 +32,9 @@ vim.keymap.del("n", "<leader>gY") -- Git Browse (copy)
 -----------
 -- copy pasting
 vim.keymap.set("n", "<D-s>", ":w<CR>", { silent = true }) -- Save normal mode
+vim.keymap.set("n", "<D-S>", ":noa w<CR>", { silent = true }) -- Save normal mode (without formatting)
 vim.keymap.set("i", "<D-s>", "<Esc>:w<CR>", { silent = true }) -- Save insert mode
+vim.keymap.set("i", "<D-S>", "<Esc>:noa w<CR>", { silent = true }) -- Save insert mode (without formatting)
 vim.keymap.set("v", "<D-c>", '"+y', { silent = true }) -- Copy visual mode
 vim.keymap.set("n", "<D-v>", '"+P', { silent = true }) -- Paste normal mode
 vim.keymap.set("v", "<D-v>", '"+P', { silent = true }) -- Paste visual mode
