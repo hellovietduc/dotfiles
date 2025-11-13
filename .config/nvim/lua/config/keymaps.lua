@@ -100,17 +100,6 @@ vim.keymap.set({ "n", "v" }, "<D-[>", ":bp<CR>", { silent = true }) -- Previous 
 vim.keymap.set({ "n", "v" }, "<D-]>", ":bn<CR>", { silent = true }) -- Next buffer
 vim.keymap.set({ "n", "v" }, "<D-w>", "<cmd>lua Snacks.bufdelete()<CR>", { silent = true }) -- Close buffer
 
-------------
--- VSCODE --
-------------
-
-if vim.g.vscode then
-  vim.keymap.set("n", "gd", [[<cmd>call VSCodeNotify('editor.action.goToImplementation')<cr>]])
-  vim.keymap.set("n", "gr", [[<cmd>call VSCodeNotify('editor.action.goToReferences')<cr>]])
-  vim.keymap.set("n", "za", [[<cmd>call VSCodeNotify('editor.toggleFold')<cr>]])
-  vim.keymap.set("n", "zR", [[<cmd>call VSCodeNotify('editor.unfoldAll')<cr>]])
-end
-
 -------------
 -- NEOVIDE --
 -------------
