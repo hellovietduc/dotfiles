@@ -1,8 +1,10 @@
 return {
   {
-    "snacks.nvim",
+    "folke/snacks.nvim",
     opts = {
-      indent = { enabled = false },
+      indent = {
+        scope = { enabled = true },
+      },
     },
   },
   {
@@ -11,6 +13,7 @@ return {
   },
   {
     "saghen/blink.indent",
+    enabled = false,
     event = "LazyFile",
     opts = {
       blocked = {
