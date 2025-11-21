@@ -52,7 +52,7 @@ windows:
       layout: even-horizontal
       panes:
         - brahms:
-            - cd services/brahms && mix deps.get && yarn start
+            - cd services/brahms && just dev_docker_local
         - whiteboard:
             - cd serverless/whiteboard-server && yarn dev
   - proxy-server:
